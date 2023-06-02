@@ -11,7 +11,7 @@ from PIL import Image
 import warnings
 warnings.filterwarnings("ignore")
 
-
+####
 class CameraPageWindow(QWidget,Ui_Form):
     #returnSignal = pyqtSignal()
     def __init__(self,parent=None):
