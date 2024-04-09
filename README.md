@@ -1,2 +1,5 @@
-My ngnork authtoken
+My ngnork authtoken is
 2erBM9zz2dx2PnQm9QxI516LriC_55G2jRJQQ92VYJEF9s6hg
+
+
+ngrok config add-authtoken 2erBM9zz2dx2PnQm9QxI516LriC_55G2jRJQQ92VYJEF9s6hg
