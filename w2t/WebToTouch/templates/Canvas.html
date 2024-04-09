@@ -1,0 +1,435 @@
+﻿﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head> 
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W2Touch</title>
+    <!-- 引入 Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+		body {
+         	   overflow-x: hidden; /* Hide horizontal scrollbar */
+               background-color: white;
+       	 }
+
+        .nav, .footer {
+            text-align: center;
+            font-size: 13px; /* 根据需要调整字体大小 */
+            padding: 20px;
+            background-color: #f8f9fa; /* Add a background color for better visibility */
+        }
+
+        #canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 70vh; /* Adjust the height as needed */
+        }
+		img {
+            width: 60px; /* 设置图像的宽度 */
+            height: auto; /* 自动计算高度，保持宽高比 */
+        }
+
+        .row {
+            display: flex; /* 使用 flexbox 布局 */
+            justify-content: center; /* 左对齐 */
+            align-items: center; /* 垂直居中对齐 */
+            
+        }
+        /* 大框样式 */
+        .shadow-box {
+            padding: 20px; /* 内边距 */
+            border-radius: 10px; /* 圆角 */
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); /* 阴影效果 */
+            margin-bottom: 10px;
+
+        }
+
+        /* .col-6 {
+            flex: 0 0 50%;
+        } */
+
+        .row input {
+            width: 80%; /* 输入框宽度 */
+            padding: 5px; /* 内边距 */
+            margin-right: 10px;
+            box-sizing: border-box; /* 盒模型设置为 border-box */
+        }
+
+        .row label {
+            margin-right: 5px; /* 右侧外边距 */
+            box-sizing: border-box; /* 盒模型设置为 border-box */
+            text-align: center;
+            padding-top: 5px;
+            /* background-color: blueviolet; */
+        }
+</style>
+</head>
+<!-- 引入 p5.js 库 -->
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.14/p5.js" defer></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/17.2.0/Tween.js"></script>
+    <script>
+        let socket;
+        let allowDrawing = false;
+        let ratio = 1.33;
+        let prevWidth;
+        let prevHeight;
+        let canvasWidth;
+        let canvasHeight;
+        let TDCanvasWidht = 400;
+        let TDCanvasHeight = 300;
+        let drawingQueue = []; // 用于存储画板数据的队列
+        let prevTouches = []; // 用于记录上一帧的触摸点位置
+        let touchIDCounter = 0; // 触摸点 ID 计数器
+        let TDCanvasSize = {
+            width:0,
+            height:0
+        }
+        // 获取输入框元素
+        // const widthInput = document.getElementById('widthInput');
+        let centerPoint = {
+                            action:{
+                                    left: 0,
+                                    right: 0,
+                                    refresh: 1
+                            },
+
+                            coordinate:[
+                                        {
+                                            id :0,
+                                            x: 0,
+                                            y: 0
+                                        },
+                                        {
+                                            id :1,
+                                            x: 0,
+                                            y: 0
+                                        },
+                                        {
+                                            id :2,
+                                            x: 0,
+                                            y: 0
+                                        },
+                                        {
+                                            id :3,
+                                            x: 0,
+                                            y: 0
+                                        },
+                                        {
+                                            id :4,
+                                            x: 0,
+                                            y: 0
+                                        },
+                            ]
+                        };
+        var touchable = 'createTouch' in document;
+        
+        function setupWebSocket() {
+            const currentHost = window.location.host;
+            const wsAddress = "ws://" + currentHost;
+            if (socket) {
+                socket.close();
+            }
+            socket = new WebSocket(wsAddress);
+
+            socket.onopen = function (event) {
+                console.log('WebSocket connection opened');
+                // socket.send(JSON.stringify(centerPoint));
+            };
+
+            socket.onerror = function (event) {
+                console.error('WebSocket error:', event);
+            };
+
+            socket.onmessage = function (event) {
+                // 处理接收到的 WebSocket 数据
+                console.log('Received WebSocket data:', JSON.parse(event.data));
+                // 在这里你可以对接收到的数据进行进一步处理
+                let AspectRatioData = JSON.parse(event.data);
+                // 使用 hasOwnProperty 方法来检查属性是否存在
+                if (AspectRatioData.hasOwnProperty('AspectRatio')) {
+                    // 如果属性存在，则执行相应的逻辑
+                    console.log('Property exists:', AspectRatioData.AspectRatio);
+                    let newRatio = AspectRatioData.AspectRatio;
+                    document.getElementById('widthInput').value = AspectRatioData.AspectRatioW;
+                    document.getElementById('heightInput').value = AspectRatioData.AspectRatioH;
+                    animateResizeCanvas(newRatio);
+                } else {
+                    // 如果属性不存在，则执行相应的逻辑
+                    console.log('Property does not exist');
+                }
+                
+            };
+        }
+
+        // 将数据添加到画板数据队列中
+        function enqueueDrawingData(data) {
+            drawingQueue.push(data);
+        }
+
+        // 发送下一条画板数据
+        function sendNextDrawingData() {
+            if (drawingQueue.length > 0 && socket && socket.readyState === WebSocket.OPEN) {
+                const data = drawingQueue[0];
+                socket.send(JSON.stringify(data));
+
+                // 监听消息发送成功的事件
+                socket.addEventListener('message', (event) => {
+                    // 在这里处理成功发送消息后的逻辑
+                    console.log('Drawing data sent successfully:', event.data);
+                    // 发送完成后从队列中移除
+                    drawingQueue.shift();
+                    // 发送下一条画板数据
+                    sendNextDrawingData();
+                });
+
+                // 监听消息发送失败的事件
+                socket.addEventListener('error', (event) => {
+                    console.error('Error sending drawing data:', event.data);
+                    // 发送失败后从队列中移除
+                    drawingQueue.shift();
+                    // 发送下一条画板数据
+                    sendNextDrawingData();
+                });
+            }
+        }
+
+        function clearCanvasAndRefresh() {
+            allowDrawing = false; // 停止绘制
+            centerPoint['action']['refresh'] = 1; 
+            centerPoint['coordinate'][0].x = 0;
+            centerPoint['coordinate'][0].y = 0;
+            background(200); // 清空画板
+            enqueueDrawingData(centerPoint);
+
+            // 发送下一条画板数据，这里会发送清空画板的数据
+            sendNextDrawingData();
+        }
+
+        // // 等待文档加载完成后再运行代码
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     // 获取输入框元素
+        //     const widthInput = document.getElementById('widthInput');
+
+        //     // 监听输入框的输入事件
+        //     widthInput.addEventListener('input', function(event) {
+        //         const width = widthInput.value; // 获取输入框的值
+        //         TDCanvasSize.width = int(widthInput.value);
+        //         console.log('看一看！！！',width)
+        //         enqueueDrawingData(TDCanvasSize);
+        //         sendNextDrawingData(); // 发送下一条画板数据 
+        //     });
+        // });
+
+        function setup() {
+            if (windowWidth >windowHeight){
+                canvasHeight = windowHeight - 150;
+                document.getElementById('canvas-container').style.height = canvasHeight + 'px';
+                canvasWidth = canvasHeight * ratio;
+            }else{
+                canvasWidth = windowWidth - 100;
+                document.getElementById('canvas-container').style.width = canvasWidth + 'px';
+
+                canvasHeight = canvasidth * ratio;
+            }
+            
+
+            createCanvas(canvasWidth, canvasHeight).parent('canvas-container');
+            background(200);
+            document.getElementById('widthInput').value = TDCanvasWidht;
+            document.getElementById('heightInput').value = TDCanvasHeight;
+            prevHeight = canvasHeight;
+            prevWidth = canvasWidth;
+            let canvas = document.getElementById('defaultCanvas0');
+            canvas.addEventListener('touchstart', onTouchStart, false);
+            canvas.addEventListener('touchmove', onTouchMove, false);
+            canvas.addEventListener('touchend', onTouchEnd, false);
+
+        }
+
+        function animateResizeCanvas(newRatio) {
+            console.log("Before resizing canvas: ", newRatio);
+            let duration = 1000; // 动画持续时间（毫秒）
+            let easing = TWEEN.Easing.Quadratic.Out; // 缓动函数
+            canvasHeight = windowHeight - 150;
+            document.getElementById('canvas-container').style.height = canvasHeight + 'px';
+            canvasWidth = canvasHeight * newRatio;
+            // 保存当前背景颜色
+            // let bgColor = getBackground(); 
+
+            tween = new TWEEN.Tween({ width: prevWidth, height: prevHeight })
+                .to({width: canvasWidth, height: canvasHeight}, duration)
+                .easing(easing)
+                .onUpdate(function (object) {
+                    resizeCanvas(object.width,object.height);
+                    // 重新绘制背景颜色
+                    background(200);
+                })
+                .start();
+            prevHeight = canvasHeight;
+            prevWidth = canvasWidth;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (typeof TWEEN !== 'undefined') {
+                TWEEN.update();
+            }
+            else{
+                console.log('error TWEEN');
+            }
+        }
+
+        animate(); // 开始动画循环
+
+
+        function windowResized() {
+            if (windowWidth >windowHeight){
+                canvasHeight = windowHeight - 150;
+                document.getElementById('canvas-container').style.height = canvasHeight + 'px';
+                canvasWidth = canvasHeight * ratio;
+            }else{
+                canvasHeight = windowHeight - 100;
+                document.getElementById('canvas-container').style.height = canvasHeight + 'px';
+
+                canvasWidth = canvasHeight * ratio;
+            }
+
+            resizeCanvas(canvasWidth, canvasHeight);
+            background(200);
+        }
+
+
+
+
+        function draw() {
+            if (allowDrawing && socket && socket.readyState === WebSocket.OPEN) {
+                fill(0);
+                // noStroke();
+                // 在画布上绘制触摸点
+                if (touchable) {
+                    // let idArray = [];
+                    centerPoint['action']['refresh'] = 0; 
+                    for (let i = 0; i < centerPoint.coordinate.length; i++) {
+                        if (i < touches.length){
+                            let touchX = touches[i].x;
+                            let touchY = touches[i].y;
+                            let prevTouchX = prevTouches[i] ? prevTouches[i].x : touchX; // 获取上一帧位置或当前位置
+                            let prevTouchY = prevTouches[i] ? prevTouches[i].y : touchY;
+                            stroke(0);
+                            strokeWeight(4);
+                            line(prevTouchX, prevTouchY, touchX, touchY); // 绘制线条
+                            // ellipse(touchX, touchY, 20, 20);
+                    
+                            if (touchX / (width)<1 && touchX / (width)>0 ){
+                                centerPoint['coordinate'][i].x = touchX / (width);
+                            }
+                            if (touchY / (height)<1 && touchY / (height)>0 ){
+                                centerPoint['coordinate'][i].y = touchY / (height);
+                            }
+                            
+                            
+                        }else{
+                            centerPoint['coordinate'][i].x = 0;
+                            centerPoint['coordinate'][i].y = 0;
+                        }
+                        
+                        enqueueDrawingData(centerPoint);
+                        sendNextDrawingData(); // 发送下一条画板数据 
+                        
+                    }
+                    // 更新 prevTouches 数组
+                    prevTouches = touches.slice();
+                }
+                else{
+                    // 绘制线条
+                    stroke(0);
+                    strokeWeight(4);
+                    line(pmouseX, pmouseY, mouseX, mouseY);
+
+                    centerPoint['coordinate'][0].x = mouseX / (width);
+                    centerPoint['coordinate'][0].y = mouseY / (height);
+
+                    enqueueDrawingData(centerPoint);
+                    sendNextDrawingData(); // 发送下一条画板数据
+                }
+                
+            }
+        }
+        
+
+        function onTouchStart(e) {
+            e.preventDefault(); //阻止事件的默认行为
+            allowDrawing = true;
+        }
+
+        function onTouchMove(e) {
+            e.preventDefault(); //阻止事件的默认行为
+            allowDrawing = true;
+        }
+
+        function onTouchEnd(e) {
+            e.preventDefault(); //阻止事件的默认行为
+        }
+
+
+        function mousePressed() {
+            allowDrawing = true;
+        }
+
+        function mouseReleased() {
+            allowDrawing = false;
+        }
+
+
+        // 初始化WebSocket连接
+        setupWebSocket();
+</script>
+	<!-- 引入 Bootstrap JS 和 Popper.js -->
+	<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
+<body>
+		<nav class="container">
+  	<img src="logo.png" onclick="clearCanvasAndRefresh()">
+</nav>
+<div class="container">
+        <div class="row">
+            <div class="shadow-box col-6">
+                <div class="row">
+                    <div class="col-6">
+                        <label>宽度</label><input type="text" id="widthInput" value="">
+                    </div>
+                    <div class="col-6">
+                        <label>高度</label><input type="text" id="heightInput" value="">
+                    </div>
+                    
+                </div>
+                    
+            </div>
+            
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <!-- p5.js Canvas Container -->
+                <div id="canvas-container"></div>
+            </div>
+        </div>
+    </div>
+<footer>
+        <div class="footer">
+            <p>
+            	<a href="https://space.bilibili.com/97058807" target="_blank">@TechWith3 in Bilibili,</a>
+            	
+
+            	<a href="https://www.xiaohongshu.com/user/profile/5f538c410000000001005c88?xhsshare=CopyLink&appuid=567b413382718c647376cd3c&apptime=1705396183" target="_blank"> in RED BOOK</a>
+            	</p>
+            <p>Web2Touch, Released 2023/1/9,©copyright THE3, Developed and Designed by Wingto and Lizzy</p>
+        </div>
+    </footer>
+</body>
+</html>
