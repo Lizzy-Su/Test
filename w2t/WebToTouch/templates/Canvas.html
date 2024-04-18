@@ -77,8 +77,8 @@
         let ratio = 1.33;
         let prevWidth;
         let prevHeight;
-        let canvasWidth;
-        let canvasHeight;
+        let canvasWidth = 400;
+        let canvasHeight = 300;
         let TDCanvasWidht = 400;
         let TDCanvasHeight = 300;
         let drawingQueue = []; // 用于存储画板数据的队列
@@ -129,7 +129,8 @@
         
         function setupWebSocket() {
             const currentHost = window.location.host;
-            const wsAddress = "ws://" + currentHost;
+            // const wsAddress = "ws://" + currentHost;
+            const wsAddress = "wss://" + "240c-122-227-195-35.ngrok-free.app";
             if (socket) {
                 socket.close();
             }

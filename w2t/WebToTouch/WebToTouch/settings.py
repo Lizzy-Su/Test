@@ -32,6 +32,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "channels",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -39,7 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "canvas"
+    "canvas",
 ]
 
 MIDDLEWARE = [
@@ -71,23 +72,18 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "WebToTouch.wsgi.application"
-
-ASGI_APPLICATION = 'WebToTouch.routing.application'
+ASGI_APPLICATION = "WebToTouch.asgi.application"
 
 
 #使用channel_layers需要配置通道
-CHANNEL_LAYERS = {
-    "default": {
-        #1、使用内存作为通道（开发使用）
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-        #2、使用redis（上线使用）
-        # 'BACKEND': 'channels.layers.RedisChannelLayer',
-        # 'CONFIG': {
-        #     'hosts': [('localhost', 6379)],
-        # },
-    }
-}
-
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [("127.0.0.1", 6379)],
+#         },
+#     },
+# }
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -147,10 +143,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = "/static/"
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+STATIC_URL = "static/"
+# STATICFILES_DIRS = [
+#     os.path.join(BASE_DIR, 'static'),
+# ]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
